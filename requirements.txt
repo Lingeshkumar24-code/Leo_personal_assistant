@@ -1,0 +1,38 @@
+# Core
+python-dotenv>=1.0.1
+requests>=2.32.0
+pydantic>=2.7.0
+rich>=13.7.1
+psutil>=6.0.0
+
+# AI providers
+google-generativeai>=0.8.3
+groq>=0.11.0
+
+# Computer control / screen
+pyautogui>=0.9.54
+pillow>=10.0.0
+pygetwindow>=0.0.9; sys_platform == "win32"
+pycaw>=20240210; sys_platform == "win32"
+comtypes>=1.4.6; sys_platform == "win32"
+screen-brightness-control>=0.24.1
+pytesseract>=0.3.10      # also install the Tesseract OCR app for Windows
+keyboard>=0.13.5          # global emergency-stop hotkey
+
+# Voice
+SpeechRecognition>=3.10.0
+pyaudio>=0.2.14
+pyttsx3>=2.90
+
+# Browser
+playwright>=1.47.0        # then run: playwright install chromium
+
+# Documents
+python-docx>=1.1.0
+openpyxl>=3.1.0
+python-pptx>=1.0.0
+pypdf>=5.0.0
+
+# Testing
+pytest>=8.2.0
+pytest-mock>=3.14.0

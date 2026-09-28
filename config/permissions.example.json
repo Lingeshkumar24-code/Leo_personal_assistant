@@ -1,0 +1,7 @@
+{
+  "_comment": "Optional overrides for per-tool permission levels. Copy to permissions.json to use.",
+  "mode": "assisted",
+  "overrides": {
+    "system.lock_computer": "PRIVILEGED"
+  }
+}

@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LEO</title>
+<style>
+  :root{
+    --bg:#06090f; --panel:rgba(255,255,255,.045); --line:rgba(255,255,255,.09);
+    --text:#dbe6f2; --muted:#7f93a8; --accent:#52c7ff; --ok:#4ade80; --err:#ff6b6b; --warn:#fbbf24;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%;background:radial-gradient(1200px 700px at 50% 38%,#0c1624 0%,var(--bg) 62%);color:var(--text);
+    font:14px/1.45 Inter,"Segoe UI",system-ui,-apple-system,sans-serif;overflow:hidden}
+  #app{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:14px;padding:16px 18px}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:.32em;font-size:15px}
+  .pill{padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--muted);transition:.25s}
+  .pill.live{color:var(--text);border-color:rgba(82,199,255,.5)}
+  .pill.ok{color:var(--ok);border-color:rgba(74,222,128,.45)} .pill.err{color:var(--err);border-color:rgba(255,107,107,.5)}
+  .spacer{flex:1}
+  select,button,input,textarea{font:inherit;color:var(--text)}
+  select,.btn{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 12px;cursor:pointer;transition:.2s}
+  .btn:hover,select:hover{border-color:rgba(82,199,255,.55)}
+  .btn.on{background:rgba(82,199,255,.16);border-color:rgba(82,199,255,.6)}
+  .btn.stop{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.5);color:#ffb3b3;font-weight:600}
+  .btn.stop:hover{background:rgba(255,107,107,.25)}
+  main{display:grid;grid-template-columns:1fr 340px;gap:16px;min-height:0}
+  #stage{position:relative;min-height:0;border-radius:18px;border:1px solid var(--line);overflow:hidden;
+    background:radial-gradient(600px 380px at 50% 45%,rgba(82,199,255,.07),transparent 70%)}
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #caption{position:absolute;left:0;right:0;bottom:64px;text-align:center;padding:0 24px;font-size:16px;letter-spacing:.02em;
+    text-shadow:0 2px 14px #000;max-height:96px;overflow:hidden}
+  #caption small{display:block;color:var(--muted);font-size:12px;margin-top:4px;letter-spacing:.08em;text-transform:uppercase}
+  #wave{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(420px,70%);height:38px}
+  aside{display:flex;flex-direction:column;gap:14px;min-height:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;backdrop-filter:blur(8px)}
+  .card h3{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px}
+  #taskText{font-weight:600;min-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #stepText{color:var(--muted);font-size:13px;margin:2px 0 10px;min-height:18px}
+  .bar{height:6px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2f8fd8,var(--accent));border-radius:6px;transition:width .4s ease}
+  #meta{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
+  #logCard{flex:1;min-height:0;display:flex;flex-direction:column}
+  #log{overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;display:flex;flex-direction:column;gap:3px;padding-right:4px}
+  #log div{color:#a9bccf;word-break:break-word} #log .t{color:#54677b;margin-right:6px}
+  #log .ok{color:var(--ok)} #log .error{color:var(--err)} #log .action{color:var(--accent)} #log .plan{color:#b7a6ff} #log .intent{color:var(--text)}
+  footer form{display:flex;gap:10px}
+  #input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;outline:none;font-size:15px}
+  #input:focus{border-color:rgba(82,199,255,.6)}
+  .mic{width:46px;padding:0;font-size:18px}
+  .mic.on{background:rgba(74,222,128,.16);border-color:rgba(74,222,128,.55)}
+  /* modal + drawer */
+  #modal{position:fixed;inset:0;background:rgba(3,6,10,.72);display:none;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
+  #modal.show{display:flex}
+  #modal .box{width:min(440px,90vw);background:#0d1521;border:1px solid rgba(251,191,36,.45);border-radius:18px;padding:22px}
+  #modal h2{font-size:16px;margin-bottom:6px;color:var(--warn)} #modal p{color:var(--muted);margin:6px 0 16px}
+  #modal .row{display:flex;gap:10px;justify-content:flex-end}
+  #drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,95vw);background:#0b121c;border-left:1px solid var(--line);z-index:15;
+    transform:translateX(100%);transition:transform .3s ease;padding:18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+  #drawer.open{transform:none}
+  #drawer textarea{width:100%;height:230px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;font:12px ui-monospace,Consolas,monospace}
+  .mem{display:flex;justify-content:space-between;gap:8px;font-size:13px;border-bottom:1px solid var(--line);padding:5px 0}
+  .mem button{background:none;border:none;color:var(--err);cursor:pointer}
+  .hint{color:var(--muted);font-size:12px}
+  /* compact floating mode */
+  body.compact #app{padding:8px;grid-template-rows:1fr}
+  body.compact header,body.compact footer,body.compact aside,body.compact #wave{display:none}
+  body.compact main{grid-template-columns:1fr}
+  body.compact #caption{bottom:8px;font-size:12px}
+  body.compact #compactBack{display:block}
+  #compactBack{display:none;position:absolute;top:8px;right:8px;z-index:5;padding:2px 8px;font-size:12px}
+  @media (max-width:820px){main{grid-template-columns:1fr}aside{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="brand">LEO</span>
+    <span id="statePill" class="pill">Connecting…</span>
+    <span class="spacer"></span>
+    <span class="pill" id="chipAI">AI —</span>
+    <span class="pill" id="chipMic">Mic off</span>
+    <span class="pill" id="chipScreen">Screen off</span>
+    <select id="mode" title="Permission mode">
+      <option value="manual">Manual · asks first</option>
+      <option value="assisted">Assisted</option>
+      <option value="autonomous">Autonomous</option>
+    </select>
+    <button class="btn" id="compactBtn" title="Compact floating mode">◉ Compact</button>
+    <button class="btn" id="settingsBtn">⚙ Settings</button>
+  </header>
+
+  <main>
+    <section id="stage">
+      <button class="btn" id="compactBack">Expand</button>
+      <canvas id="gl"></canvas>
+      <div id="caption"><span id="captionText">Say “LEO …” or type a command</span><small id="captionSub"></small></div>
+      <canvas id="wave" width="420" height="38"></canvas>
+    </section>
+    <aside>
+      <div class="card">
+        <h3>Current task</h3>
+        <div id="taskText">—</div>
+        <div id="stepText"></div>
+        <div class="bar"><i id="barFill"></i></div>
+        <div id="meta"><span id="pct">0%</span><span id="steps"></span></div>
+      </div>
+      <div class="card" id="logCard"><h3>Activity</h3><div id="log"></div></div>
+    </aside>
+  </main>
+
+  <footer>
+    <form id="form">
+      <button type="button" class="btn mic" id="micBtn" title="Voice mode (say “LEO …”)">🎙</button>
+      <input id="input" autocomplete="off" placeholder="Tell LEO what to do…">
+      <button class="btn on" type="submit">Send</button>
+      <button class="btn stop" type="button" id="stopBtn" title="Emergency stop (CTRL+SHIFT+L)">■ STOP</button>
+    </form>
+  </footer>
+</div>
+
+<div id="modal"><div class="box">
+  <h2>LEO needs your approval</h2>
+  <p id="modalText"></p>
+  <div class="row"><button class="btn" id="denyBtn">Deny</button><button class="btn on" id="approveBtn">Approve</button></div>
+</div></div>
+
+<div id="drawer">
+  <div style="display:flex;justify-content:space-between;align-items:center"><strong>Settings</strong><button class="btn" id="closeDrawer">Close</button></div>
+  <div class="card"><h3>Screen awareness</h3>
+    <button class="btn" id="watchBtn">Start watching screen</button>
+    <p class="hint" style="margin-top:8px">Watching reads your screen locally (OCR) every few seconds. Nothing is uploaded until you ask a screen question. Requires SCREEN_CAPTURE_ENABLED=true.</p></div>
+  <div class="card"><h3>Your profile (used by the job assistant)</h3>
+    <textarea id="profileBox" spellcheck="false"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><button class="btn on" id="saveProfile">Save profile</button><span class="hint" id="profileMsg"></span></div></div>
+  <div class="card"><h3>What LEO remembers</h3><div id="memList"></div><p class="hint" id="memEmpty">Nothing stored yet.</p></div>
+</div>
+
+<script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ---------- API ---------- */
+const TOKEN = new URLSearchParams(location.search).get('t') || '';
+const api = async (path, body) => {
+  const res = await fetch(path, {method: body === undefined ? 'GET' : 'POST',
+    headers: {'X-LEO-Token': TOKEN, 'Content-Type': 'application/json'}, body: body === undefined ? undefined : JSON.stringify(body)});
+  return res.json();
+};
+const $ = id => document.getElementById(id);
+
+/* ---------- 3D scene ---------- */
+const canvas = $('gl'), stage = $('stage');
+const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100); camera.position.set(0, 0.1, 8.2);
+
+// soft studio environment so the metal has something to reflect
+const pm = new THREE.PMREMGenerator(renderer);
+const env = new THREE.Scene();
+const skyGeo = new THREE.SphereGeometry(12, 32, 16), cols = [];
+const pos = skyGeo.attributes.position, top = new THREE.Color(0x35597d), bot = new THREE.Color(0x05080d);
+for (let i = 0; i < pos.count; i++) { const t = (pos.getY(i) / 12 + 1) / 2; const c = bot.clone().lerp(top, t); cols.push(c.r, c.g, c.b); }
+skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+env.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({side: THREE.BackSide, vertexColors: true})));
+[[6, 4, 3, 0xdff3ff], [-6, 3, 4, 0x9cc2ff], [0, -5, 5, 0x39d0c9], [-3, -2, 7, 0xffffff]].forEach(([x, y, z, c]) => {
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), new THREE.MeshBasicMaterial({color: new THREE.Color(c).multiplyScalar(4), side: THREE.DoubleSide}));
+  p.position.set(x, y, z); p.lookAt(0, 0, 0); env.add(p);
+});
+scene.environment = pm.fromScene(env, 0.04).texture;
+
+const rig = new THREE.Group(); scene.add(rig);
+
+// LOGO: geometric "L" frame + AI core
+const s = new THREE.Shape();
+s.moveTo(0, 0); s.lineTo(2.25, 0); s.lineTo(2.6, .35); s.lineTo(2.6, .62); s.lineTo(.62, .62); s.lineTo(.62, 2.7); s.lineTo(.3, 3.05); s.lineTo(0, 3.05); s.closePath();
+const lGeo = new THREE.ExtrudeGeometry(s, {depth: .34, bevelEnabled: true, bevelSize: .05, bevelThickness: .07, bevelSegments: 3});
+lGeo.translate(-1.5, -1.55, -.17);
+const lMesh = new THREE.Mesh(lGeo, new THREE.MeshPhysicalMaterial({color: 0xd3dee9, metalness: 1, roughness: .16, clearcoat: 1, clearcoatRoughness: .08, envMapIntensity: 2.4}));
+lMesh.scale.setScalar(.86); rig.add(lMesh);
+const lEdge = new THREE.LineSegments(new THREE.EdgesGeometry(lGeo, 40), new THREE.LineBasicMaterial({color: 0x52c7ff, transparent: true, opacity: .35}));
+lEdge.scale.setScalar(.86); rig.add(lEdge);
+
+const coreGroup = new THREE.Group(); coreGroup.position.set(.32, .3, 0); rig.add(coreGroup);
+const coreMat = new THREE.MeshStandardMaterial({color: 0x07141d, emissive: 0x52c7ff, emissiveIntensity: .9, roughness: .35, metalness: .1});
+const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.5, 4), coreMat); coreGroup.add(core);
+const shellMat = new THREE.MeshBasicMaterial({color: 0x9adfff, wireframe: true, transparent: true, opacity: .32});
+const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(.68, 1), shellMat); coreGroup.add(shell);
+const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.35, 'rgba(255,255,255,.28)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+const glowMat = new THREE.SpriteMaterial({map: glowTex, color: 0x52c7ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .8});
+const glow = new THREE.Sprite(glowMat); glow.scale.setScalar(3.2); coreGroup.add(glow);
+const coreLight = new THREE.PointLight(0x52c7ff, 5, 8); coreGroup.add(coreLight);
+scene.add(new THREE.AmbientLight(0x27384c, .8));
+
+// orbital rings: three dashed rings, each with an "energy runner"
+const ringDefs = [{r: 1.25, tilt: [1.15, .2, 0], sp: 1}, {r: 1.62, tilt: [.35, 1.0, .5], sp: -.7}, {r: 2.05, tilt: [-.6, .3, 1.1], sp: .5}];
+const rings = ringDefs.map(d => {
+  const holder = new THREE.Group(); holder.rotation.set(...d.tilt); coreGroup.add(holder);
+  const spin = new THREE.Group(); holder.add(spin);
+  const mat = new THREE.MeshStandardMaterial({color: 0x9fdcff, emissive: 0x52c7ff, emissiveIntensity: .9, metalness: .6, roughness: .3});
+  for (let k = 0; k < 3; k++) {
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(d.r, .018, 12, 90, Math.PI * 2 / 3 * .72), mat);
+    arc.rotation.z = k * Math.PI * 2 / 3; spin.add(arc);
+  }
+  const runnerPivot = new THREE.Group(); holder.add(runnerPivot);
+  const runner = new THREE.Mesh(new THREE.SphereGeometry(.055, 12, 12), new THREE.MeshBasicMaterial({color: 0xffffff}));
+  runner.position.x = d.r; runnerPivot.add(runner);
+  const rg = new THREE.Sprite(glowMat.clone()); rg.scale.setScalar(.5); runner.add(rg);
+  return {d, spin, mat, runner, runnerPivot, rg};
+});
+
+// particles
+const N = 320, pgeo = new THREE.BufferGeometry(), parr = new Float32Array(N * 3);
+for (let i = 0; i < N; i++) { const r = 1.4 + Math.random() * 2.6, a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1);
+  parr.set([r * Math.sin(b) * Math.cos(a), r * Math.cos(b) * .8, r * Math.sin(b) * Math.sin(a)], i * 3); }
+pgeo.setAttribute('position', new THREE.BufferAttribute(parr, 3));
+const pmat = new THREE.PointsMaterial({color: 0x8fd8ff, size: .028, transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false});
+const points = new THREE.Points(pgeo, pmat); coreGroup.add(points);
+
+// completion shockwave
+const wave = new THREE.Mesh(new THREE.RingGeometry(.9, .94, 96), new THREE.MeshBasicMaterial({color: 0x4ade80, transparent: true, opacity: 0, side: THREE.DoubleSide}));
+coreGroup.add(wave);
+
+/* ---------- Browser TTS (SpeechSynthesis) ---------- */
+function browserSpeak(text) {
+  if (!window.speechSynthesis) return;
+  // Keep it short for errors
+  const shortText = text.length > 300 ? text.slice(0, 300) + '...' : text;
+  const utter = new SpeechSynthesisUtterance(shortText);
+  utter.lang = 'en-US';
+  utter.rate = 1.0;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
+const STATES = {
+  idle:      {ring: .25, pulse: .035, freq: .9,  color: 0x52c7ff, run: 0,  glow: .55},
+  listening: {ring: .45, pulse: .14,  freq: 2.4, color: 0x63d6ff, run: 0,  glow: .9},
+  thinking:  {ring: 1.9, pulse: .07,  freq: 3.2, color: 0x8ab4ff, run: .6, glow: .85},
+  executing: {ring: 1.0, pulse: .06,  freq: 4.0, color: 0x39d0c9, run: 3.2, glow: 1.0},
+  speaking:  {ring: .5,  pulse: .2,   freq: 7.0, color: 0x76e2ff, run: 0,  glow: 1.0},
+  success:   {ring: .8,  pulse: .09,  freq: 1.6, color: 0x4ade80, run: 0,  glow: 1.0},
+  error:     {ring: .3,  pulse: .16,  freq: 9.0, color: 0xff6b6b, run: 0,  glow: 1.0},
+};
+let cur = {ring: .25, pulse: .035, freq: .9, run: 0, glow: .55}, curColor = new THREE.Color(0x52c7ff), target = STATES.idle, stateName = 'idle', burst = 0, waveT = 1;
+function setState(name) {
+  if (name === stateName) return; stateName = name; target = STATES[name] || STATES.idle;
+  if (name === 'success') { waveT = 0; burst = 1; wave.material.color.set(0x4ade80); }
+  if (name === 'error') { waveT = 0; burst = 1; wave.material.color.set(0xff6b6b); }
+}
+const pointer = {x: 0, y: 0};
+addEventListener('pointermove', e => { pointer.x = e.clientX / innerWidth * 2 - 1; pointer.y = e.clientY / innerHeight * 2 - 1; });
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  camera.position.z = w / h < 1 ? 11 : 8.2;
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+const clock = new THREE.Clock(), tmp = new THREE.Color();
+function frame() {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime, k = 1 - Math.pow(.001, dt);
+  for (const key of ['ring', 'pulse', 'freq', 'run', 'glow']) cur[key] += (target[key] - cur[key]) * k * 1.5;
+  curColor.lerp(tmp.set(target.color), k * 2);
+  burst = Math.max(0, burst - dt * 1.4);
+
+  // gentle parallax + slow "showcase" turn so the L reads as 3D
+  rig.rotation.y += ((Math.sin(t * .35) * .42 + pointer.x * .25) - rig.rotation.y) * .05;
+  rig.rotation.x += ((pointer.y * .12 - .05) - rig.rotation.x) * .05;
+  rig.position.y = Math.sin(t * .8) * .06;
+
+  const wob = stateName === 'speaking' ? (Math.sin(t * cur.freq) * .5 + Math.sin(t * cur.freq * 1.7 + 1) * .35 + .3) : Math.sin(t * cur.freq);
+  const sc = 1 + cur.pulse * wob + burst * .25;
+  core.scale.setScalar(sc); shell.scale.setScalar(1 + cur.pulse * .6 * wob + burst * .3);
+  shell.rotation.y += dt * (.3 + cur.ring * .3); shell.rotation.x += dt * .12;
+  coreMat.emissive.copy(curColor); coreMat.emissiveIntensity = .55 + cur.glow * .5 + burst * 1.2;
+  glowMat.color.copy(curColor); glow.material.opacity = .16 + cur.glow * .2; glow.scale.setScalar(2.6 + cur.pulse * 3 * wob + burst);
+  shellMat.color.copy(curColor).lerp(new THREE.Color(0xffffff), .35);
+  coreLight.color.copy(curColor); coreLight.intensity = 3 + cur.glow * 4 + burst * 20;
+  lEdge.material.color.copy(curColor);
+
+  rings.forEach((r, i) => {
+    r.spin.rotation.z += dt * cur.ring * r.d.sp * (1 + i * .15);
+    r.mat.emissive.copy(curColor); r.mat.emissiveIntensity = .6 + cur.glow * .7 + burst;
+    r.runnerPivot.rotation.z += dt * cur.run * (1.4 + i * .5) * Math.sign(r.d.sp);
+    r.runner.visible = cur.run > .05; r.rg.material.color.copy(curColor);
+    r.runner.scale.setScalar(.6 + Math.min(cur.run, 1.5));
+  });
+  points.rotation.y += dt * (.03 + cur.ring * .05); points.material.color.copy(curColor); points.material.opacity = .4 + cur.glow * .25;
+
+  if (waveT < 1) { waveT += dt * .9; const e = waveT; wave.scale.setScalar(1 + e * 3.2); wave.material.opacity = (1 - e) * .8; wave.lookAt(camera.position); }
+  else wave.material.opacity = 0;
+
+  // error: brief camera shake
+  camera.position.x = stateName === 'error' ? Math.sin(t * 60) * .03 * burst : 0;
+  renderer.render(scene, camera); requestAnimationFrame(frame);
+}
+frame();
+
+/* ---------- waveform (visual indicator) ---------- */
+const wctx = $('wave').getContext('2d');
+function drawWave(ts) {
+  const w = 420, h = 38, bars = 44, amp = {listening: .55, speaking: .85, thinking: .18, executing: .22}[stateName] || .06;
+  wctx.clearRect(0, 0, w, h);
+  const c = '#' + curColor.getHexString(); wctx.fillStyle = c; wctx.globalAlpha = .85;
+  for (let i = 0; i < bars; i++) {
+    const n = (Math.sin(ts / 170 + i * .55) + Math.sin(ts / 97 + i * 1.3) * .6 + 1.6) / 3.2;
+    const env = Math.sin(i / (bars - 1) * Math.PI);
+    const bh = Math.max(2, h * amp * n * (.35 + env));
+    wctx.fillRect(i * (w / bars) + 1, (h - bh) / 2, w / bars - 3, bh);
+  }
+  requestAnimationFrame(drawWave);
+}
+requestAnimationFrame(drawWave);
+
+/* ---------- Browser Speech Recognition (Web Speech API) ---------- */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let browserRecognition = null;
+let browserListening = false;
+let wakeWordEnabled = true;
+const WAKE_WORDS = ['leo', 'hey leo', 'ok leo'];
+
+// Common misheard corrections
+const CORRECTIONS = {
+  'w=time': 'time',
+  'w time': 'time',
+  'what is the w': 'what is the',
+  'what is w': 'what is',
+  'whats the w': 'what is the',
+};
+
+function applyCorrections(text) {
+  let corrected = text;
+  for (const [wrong, right] of Object.entries(CORRECTIONS)) {
+    corrected = corrected.replace(new RegExp(wrong, 'gi'), right);
+  }
+  return corrected;
+}
+
+function initBrowserRecognition() {
+  if (!SpeechRecognition) return false;
+  browserRecognition = new SpeechRecognition();
+  browserRecognition.continuous = true;
+  browserRecognition.interimResults = true;
+  browserRecognition.lang = 'en-US';
+  browserRecognition.maxAlternatives = 3;
+  browserRecognition.onresult = (event) => {
+    let finalTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        // Get the most confident alternative
+        const best = event.results[i][0];
+        finalTranscript += best.transcript;
+        console.log('Confidence:', best.confidence, 'Text:', best.transcript);
+      }
+    }
+    if (finalTranscript.trim()) {
+      const text = applyCorrections(finalTranscript.trim().toLowerCase());
+      handleVoiceInput(text);
+    }
+  };
+  browserRecognition.onerror = (e) => {
+    console.error('Speech recognition error:', e.error);
+    if (e.error === 'no-speech' || e.error === 'audio-capture') {
+      if (browserListening && browserRecognition) {
+        setTimeout(() => {
+          try { browserRecognition.start(); } catch {}
+        }, 1000);
+      }
+    } else if (e.error === 'network') {
+      browserSpeak('Network error. Please check your connection.');
+    }
+  };
+  browserRecognition.onend = () => {
+    if (browserListening && browserRecognition) {
+      try { browserRecognition.start(); } catch {}
+    }
+  };
+  return true;
+}
+
+function handleVoiceInput(text) {
+  console.log('Heard:', text);
+  // Check for wake word
+  let command = null;
+  if (wakeWordEnabled) {
+    for (const wake of WAKE_WORDS) {
+      if (text.startsWith(wake)) {
+        command = text.slice(wake.length).trim();
+        break;
+      }
+      // Also check if wake word is anywhere in the first few words
+      const words = text.split(' ').slice(0, 3).join(' ');
+      if (words.includes(wake)) {
+        const idx = text.indexOf(wake);
+        command = text.slice(idx + wake.length).trim();
+        break;
+      }
+    }
+  } else {
+    command = text;
+  }
+  
+  if (command === undefined || command === '') {
+    // Just wake word, acknowledge
+    browserSpeak('Yes?');
+    return;
+  }
+  
+  if (command) {
+    console.log('Command:', command);
+    // Send to LEO
+    api('/api/command', {text: command});
+  }
+}
+
+function updateMicButton(on) {
+  const btn = $('micBtn');
+  btn.classList.toggle('on', on);
+  btn.title = on ? 'Voice mode ON (click to stop)' : 'Voice mode OFF (click to start)';
+  // Don't call API for browser voice - we handle it client-side
+}
+
+function toggleBrowserVoice() {
+  if (!browserRecognition && !initBrowserRecognition()) {
+    alert('Speech recognition not supported in this browser. Use Chrome/Edge.');
+    return;
+  }
+  if (browserListening) {
+    browserRecognition.stop();
+    browserListening = false;
+    updateMicButton(false);
+    browserSpeak('Voice mode stopped');
+  } else {
+    try {
+      browserRecognition.start();
+      browserListening = true;
+      updateMicButton(true);
+      browserSpeak('LEO is listening. Say LEO followed by your command.');
+    } catch (e) {
+      console.error('Failed to start recognition:', e);
+    }
+  }
+}
+
+/* ---------- UI wiring ---------- */
+const LABEL = {idle: 'Ready', listening: 'Listening…', thinking: 'Thinking…', executing: 'Working…', speaking: 'Speaking…', success: 'Done', error: 'Problem'};
+let lastLogCount = -1, watching = false, online = false;
+async function poll() {
+  try {
+    const s = await api('/api/state'); online = true;
+    setState(s.state);
+    const pill = $('statePill'); pill.textContent = LABEL[s.state] || s.state;
+    pill.className = 'pill ' + (s.state === 'success' ? 'ok' : s.state === 'error' ? 'err' : s.state !== 'idle' ? 'live' : '');
+    $('chipAI').textContent = 'AI · ' + (s.provider || '—');
+    $('chipMic').textContent = s.mic ? 'Mic on' : 'Mic off'; $('chipMic').className = 'pill' + (s.mic ? ' ok' : '');
+    $('chipScreen').textContent = {off: 'Screen off', on_demand: 'Screen on request', watching: 'Watching screen'}[s.screen] || s.screen;
+    $('chipScreen').className = 'pill' + (s.screen === 'watching' ? ' live' : '');
+    if (document.activeElement !== $('mode')) $('mode').value = s.mode;
+    watching = s.screen === 'watching'; $('watchBtn').textContent = watching ? 'Stop watching screen' : 'Start watching screen'; $('watchBtn').classList.toggle('on', watching);
+    $('micBtn').classList.toggle('on', !!s.mic);
+    $('taskText').textContent = s.task || '—'; $('stepText').textContent = s.step || '';
+    const pct = Math.round(s.progress * 100); $('barFill').style.width = pct + '%'; $('pct').textContent = pct + '%';
+    $('steps').textContent = s.steps_total ? `${s.steps_done}/${s.steps_total} steps` : '';
+const showReply = (s.state === 'success' || s.state === 'error' || s.state === 'speaking') && s.reply;
+    $('captionText').textContent = showReply ? s.reply.split('\n')[0].slice(0, 140) : (s.step || (s.state === 'listening' ? 'Listening…' : 'Say "LEO ..." or type a command'));
+    $('captionSub').textContent = showReply ? '' : (LABEL[s.state] || '');
+    if ((s.state === 'speaking' || s.state === 'success' || s.state === 'error') && s.reply && !window.__leo_spoke) {
+      browserSpeak(s.reply);
+      window.__leo_spoke = true;
+    } else if (s.state !== 'speaking' && s.state !== 'success' && s.state !== 'error') {
+      window.__leo_spoke = false;
+    }
+    if (s.log.length !== lastLogCount) {
+      lastLogCount = s.log.length; const box = $('log'); const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+      box.replaceChildren(...s.log.map(l => { const d = document.createElement('div'); d.className = l.kind;
+        const t = document.createElement('span'); t.className = 't'; t.textContent = l.t; d.append(t, document.createTextNode(l.text)); return d; }));
+      if (atEnd) box.scrollTop = box.scrollHeight;
+    }
+    const pc = s.pending_confirmation;
+    $('modal').classList.toggle('show', !!pc);
+    if (pc) $('modalText').textContent = `${pc.tool} — ${pc.reason}`;
+  } catch (e) { if (online || !TOKEN) { $('statePill').textContent = 'Offline'; $('statePill').className = 'pill err'; } online = false; }
+}
+setInterval(poll, 350); poll();
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault(); const text = $('input').value.trim(); if (!text) return; $('input').value = '';
+  const r = await api('/api/command', {text}); if (r.error) toast(r.error);
+});
+function toast(msg) { const box = $('log'), d = document.createElement('div'); d.className = 'error'; d.textContent = msg; box.append(d); box.scrollTop = box.scrollHeight; }
+$('stopBtn').onclick = () => api('/api/stop', {});
+addEventListener('keydown', e => { if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'l') api('/api/stop', {}); });
+$('approveBtn').onclick = () => api('/api/confirm', {approve: true});
+$('denyBtn').onclick = () => api('/api/confirm', {approve: false});
+$('mode').onchange = async e => { await api('/api/mode', {mode: e.target.value}); };
+$('micBtn').onclick = toggleBrowserVoice;
+$('watchBtn').onclick = async () => { const r = await api('/api/screen', {mode: watching ? 'on_demand' : 'watching'}); if (r.error) toast(r.error); };
+$('compactBtn').onclick = () => { document.body.classList.add('compact'); try { resizeTo(320, 380); } catch (e) {} setTimeout(resize, 50); };
+$('compactBack').onclick = () => { document.body.classList.remove('compact'); try { resizeTo(1180, 760); } catch (e) {} setTimeout(resize, 50); };
+async function loadSettings() {
+  const p = await api('/api/profile'); $('profileBox').value = JSON.stringify(p, null, 2);
+  const m = await api('/api/memory'); const list = $('memList'); list.replaceChildren();
+  Object.entries(m.preferences || {}).forEach(([k, v]) => { const row = document.createElement('div'); row.className = 'mem';
+    const span = document.createElement('span'); span.textContent = `${k}: ${v}`; const b = document.createElement('button'); b.textContent = 'forget';
+    b.onclick = async () => { await api('/api/memory/forget', {key: k}); loadSettings(); }; row.append(span, b); list.append(row); });
+  $('memEmpty').style.display = list.children.length ? 'none' : 'block';
+}
+$('settingsBtn').onclick = () => { $('drawer').classList.add('open'); loadSettings(); };
+$('closeDrawer').onclick = () => $('drawer').classList.remove('open');
+$('saveProfile').onclick = async () => {
+  try { const r = await api('/api/profile', JSON.parse($('profileBox').value)); $('profileMsg').textContent = r.error ? r.error : 'Saved'; }
+  catch (e) { $('profileMsg').textContent = 'Invalid JSON'; }
+};
+</script>
+</body>
+</html>
